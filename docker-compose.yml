@@ -1,0 +1,71 @@
+version: '3.8'  # Especifica a versão do formato do Docker Compose. A versão '3.8' permite recursos mais avançados, como o uso de 'depends_on' e 'healthcheck'.
+
+services:
+  mysql:
+    image: mysql:5.7  # Especifica a versão 5.7 da imagem MySQL, um sistema de gerenciamento de banco de dados relacional.
+    container_name: mysql  # Define o nome do container MySQL.
+    
+    environment:
+      MYSQL_ROOT_PASSWORD: root  # Define a senha do usuário root do MySQL.
+      MYSQL_DATABASE: fullcycle  # Define o nome do banco de dados que será criado automaticamente ao iniciar o MySQL.
+    
+    volumes:
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql  # Monta um arquivo SQL de inicialização (init.sql) que será executado na inicialização do MySQL, configurando o banco de dados inicial.
+
+    ports:
+      - "3306:3306"  # Mapeia a porta 3306 do container (porta padrão do MySQL) para a porta 3306 da máquina host, permitindo conexões externas ao banco de dados.
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]  # O comando 'mysqladmin ping' verifica se o MySQL está aceitando conexões.
+      interval: 10s  # O Docker vai rodar o healthcheck a cada 10 segundos.
+      timeout: 5s  # Se o healthcheck não retornar uma resposta em 5 segundos, será considerado uma falha.
+      retries: 3  # O container será considerado saudável após 3 tentativas bem-sucedidas de conexão.
+
+    networks:
+        - app-network  # Também na mesma rede, se necessário
+
+  node:
+    build: ./node  # Especifica que a imagem do container Node.js será construída a partir do Dockerfile na pasta './node'.
+    container_name: node  # Define o nome do container Node.js para facilitar a identificação.
+    
+    environment:
+      - DB_HOST=mysql  # Variável de ambiente que define o host do banco de dados MySQL (neste caso, o nome do serviço 'mysql').
+      - DB_USER=root  # Define o usuário do banco de dados como 'root'.
+      - DB_PASSWORD=root  # Define a senha do usuário 'root' do banco de dados MySQL.
+      - DB_NAME=fullcycle  # Define o nome do banco de dados que o Node.js vai usar.
+    
+    volumes:
+      - ./node:/usr/src/app  # Monta o diretório local './node' dentro do container Node.js, permitindo desenvolvimento em tempo real.
+      - /usr/src/app/node_modules  # Evita sobrescrever a pasta 'node_modules' dentro do container, mantendo-a separada para que as dependências instaladas no container não sejam sobrescritas pelo volume.
+
+    ports:
+      - "3000:3000"  # Mapeia a porta 3000 do container (onde o Node.js escuta) para a porta 3000 da máquina host.
+
+    depends_on:
+      mysql:
+        condition: service_healthy  # Node.js só iniciará quando o MySQL estiver saudável
+
+    networks:
+      - app-network  # Também na mesma rede, se necessário
+
+  nginx:
+    image: nginx:latest  # Especifica a imagem mais recente do Nginx, um servidor HTTP usado como proxy reverso.
+    container_name: nginx  # Define o nome do container Nginx para fácil identificação.
+    
+    ports:
+      - "8080:80"  # Mapeia a porta 80 do container (onde o Nginx escuta) para a porta 8080 da máquina host, permitindo acessar o Nginx via localhost:8080.
+
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf  # Monta o arquivo local de configuração do Nginx (nginx.conf) no container, substituindo a configuração padrão do Nginx por uma personalizada.
+
+    depends_on:
+      - node  # Define que o Nginx depende do serviço 'node'. O Nginx só iniciará após o container Node.js estar ativo.
+    
+    networks:
+      - app-network  # Também na mesma rede, se necessário
+
+networks:
+  app-network:
+    driver: bridge  # Define uma rede bridge (rede padrão do Docker Compose)
+
+  
