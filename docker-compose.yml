@@ -11,7 +11,8 @@ services:
     
     volumes:
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql  # Monta um arquivo SQL de inicialização (init.sql) que será executado na inicialização do MySQL, configurando o banco de dados inicial.
-
+      - mysql-data:/var/lib/mysql  # Mapeia o diretório de dados do MySQL para persistência
+    
     ports:
       - "3306:3306"  # Mapeia a porta 3306 do container (porta padrão do MySQL) para a porta 3306 da máquina host, permitindo conexões externas ao banco de dados.
 
@@ -68,4 +69,5 @@ networks:
   app-network:
     driver: bridge  # Define uma rede bridge (rede padrão do Docker Compose)
 
-  
+volumes:
+  mysql-data:  # Volume nomeado para persistir os dados do MySQL
